@@ -1,35 +1,60 @@
-pipeline{
-    agent { label 'dev-server' }
-    
-    stages{
-        stage("Code Clone"){
-            steps{
-                echo "Code Clone Stage"
-                git url: "https://github.com/LondheShubham153/node-todo-cicd.git", branch: "master"
+pipeline {
+    agent any
+    stages {
+        stage('Code') {
+            steps {
+                echo 'Cloning source code...'
+                git url: 'https://github.com/devopswithsky/node-todo-cicd.git' , branch: 'master'
             }
         }
-        stage("Code Build & Test"){
-            steps{
-                echo "Code Build Stage"
-                sh "docker build -t node-app ."
+
+        stage('Build') {
+            steps {
+                echo 'Building the application...'
+                sh 'docker build -t dockercycle/node-todo-app:latest .'
             }
         }
-        stage("Push To DockerHub"){
-            steps{
-                withCredentials([usernamePassword(
-                    credentialsId:"dockerHubCreds",
-                    usernameVariable:"dockerHubUser", 
-                    passwordVariable:"dockerHubPass")]){
-                sh 'echo $dockerHubPass | docker login -u $dockerHubUser --password-stdin'
-                sh "docker image tag node-app:latest ${env.dockerHubUser}/node-app:latest"
-                sh "docker push ${env.dockerHubUser}/node-app:latest"
+
+        stage('Test') {
+            steps {
+                echo 'Running tests...'
+            }
+        }
+        stage('Push') {
+            steps {
+                echo 'Running Push...'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerHub', 
+                        passwordVariable:'dockerHubPassword',
+                        usernameVariable:'dockerHubUser'
+                        )
+                    ]){
+                    sh "docker login -u ${env.dockerHubUser}  -p ${env.dockerHubPassword}"
+                    sh 'docker push dockercycle/node-todo-app:latest'
                 }
             }
         }
-        stage("Deploy"){
-            steps{
-                sh "docker compose down && docker compose up -d --build"
+        
+        stage('Deploy') {
+            steps {
+                echo 'Deploying application...'
+                sh "docker compose down && docker compose up -d"
+ 
             }
         }
     }
+
+    post {
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+        }
+        always {
+            echo 'Pipeline execution finished.'
+        }
+    }
 }
+
